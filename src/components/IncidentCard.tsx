@@ -11,6 +11,7 @@ import { useModalState } from '../hooks/useModalState';
 interface IncidentCardProps {
   incident: Incident;
   pinnedInfo?: { pinnedAt: number; duration: number };
+  onClick?: (() => void) | undefined;
 }
 
 // Utility function to mask sensitive information
@@ -24,7 +25,11 @@ const maskSensitiveInfo = (text: string) => {
   return maskedText;
 };
 
-export const IncidentCard = memo(function IncidentCard({ incident, pinnedInfo }: IncidentCardProps) {
+export const IncidentCard = memo(function IncidentCard({ 
+  incident, 
+  pinnedInfo,
+  onClick
+}: IncidentCardProps) {
   const { isOpen, open, close, modalRef } = useModalState(incident.reference);
 
   const severityColors = {
@@ -98,7 +103,8 @@ export const IncidentCard = memo(function IncidentCard({ incident, pinnedInfo }:
     <>
       <div className={`flex flex-col sm:flex-row items-start gap-4 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 ${
         pinnedInfo ? 'ring-2 ring-purple-200 dark:ring-purple-800' : ''
-      }`}>
+      }`}
+      onClick={onClick}>
         {/* Left side - Priority indicator */}
         <div className="flex flex-row sm:flex-col items-center gap-2 w-full sm:w-auto">
           <div className="relative">

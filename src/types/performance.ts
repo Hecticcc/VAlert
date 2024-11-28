@@ -1,18 +1,13 @@
+export interface LayoutShiftMetric extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+}
+
 export interface ImageConfig {
   url: string;
   sizes: number[];
   lazy?: boolean;
   priority?: 'high' | 'low';
-}
-
-export interface PerformanceConfig {
-  enableMetrics: boolean;
-  cacheDuration: number;
-  criticalAssets: string[];
-  imageOptimization: {
-    quality: number;
-    formats: string[];
-  };
 }
 
 export interface CacheEntry<T> {

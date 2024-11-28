@@ -1,11 +1,5 @@
-export interface PerformanceMetrics {
-  timeToFirstByte: number;
-  firstContentfulPaint: number;
-  largestContentfulPaint: number;
-  firstInputDelay: number;
-  cumulativeLayoutShift: number;
-  timeToInteractive: number;
-}
+import { LayoutShiftMetric } from '../../types/performance';
+import { PerformanceMetrics } from '../../types/metrics';
 
 export function captureWebVitals(): Promise<PerformanceMetrics> {
   return new Promise((resolve) => {
@@ -42,15 +36,14 @@ export function captureWebVitals(): Promise<PerformanceMetrics> {
     // Cumulative Layout Shift
     new PerformanceObserver((entryList) => {
       let cumulativeScore = 0;
-      for (const entry of entryList.getEntries()) {
+      entryList.getEntries().forEach((entry: LayoutShiftMetric) => {
         if (!entry.hadRecentInput) {
-          const impact = (entry as any).value;
-          cumulativeScore += impact;
+          cumulativeScore += entry.value;
         }
-      }
+      });
       metrics.cumulativeLayoutShift = cumulativeScore;
     }).observe({ entryTypes: ['layout-shift'] });
-
+    
     // Time to Interactive (approximation)
     const checkInteractive = () => {
       if (document.readyState === 'complete') {
