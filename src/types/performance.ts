@@ -1,6 +1,7 @@
 export interface LayoutShiftMetric extends PerformanceEntry {
   value: number;
   hadRecentInput: boolean;
+  toJSON: () => any;
 }
 
 export interface ImageConfig {

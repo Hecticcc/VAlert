@@ -1,6 +1,5 @@
 import { useVirtual } from '@tanstack/react-virtual';
-import { LayoutShiftMetric } from '../../types/performance';
-import { PerformanceMetrics } from '../../types/metrics';
+import React from 'react';
 
 interface VirtualizedListProps<T> {
   items: T[];

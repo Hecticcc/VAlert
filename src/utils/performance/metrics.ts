@@ -36,9 +36,10 @@ export function captureWebVitals(): Promise<PerformanceMetrics> {
     // Cumulative Layout Shift
     new PerformanceObserver((entryList) => {
       let cumulativeScore = 0;
-      entryList.getEntries().forEach((entry: LayoutShiftMetric) => {
+      entryList.getEntries().forEach((entry) => {
+        const layoutShift = entry as LayoutShiftMetric;
         if (!entry.hadRecentInput) {
-          cumulativeScore += entry.value;
+          cumulativeScore += layoutShift.value;
         }
       });
       metrics.cumulativeLayoutShift = cumulativeScore;

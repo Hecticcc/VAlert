@@ -11,6 +11,7 @@ import { useModalState } from '../hooks/useModalState';
 interface IncidentCardProps {
   incident: Incident;
   pinnedInfo?: { pinnedAt: number; duration: number };
+  onClick?: () => void;
   onClick?: (() => void) | undefined;
 }
 
