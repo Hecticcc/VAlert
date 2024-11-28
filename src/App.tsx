@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Moon, Sun, Volume2, VolumeX } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IncidentCard } from './components/IncidentCard';
 import { RefreshTimer } from './components/RefreshTimer';
 import { useIncidents } from './hooks/useIncidents';
@@ -8,33 +8,27 @@ import { useAudioNotification } from './hooks/useAudioNotification';
 import { IncidentMap } from './components/IncidentMap';
 import { ScrollToTop } from './components/ScrollToTop';
 import { BetaWarning } from './components/BetaWarning';
+import { GoogleAnalytics } from './components/GoogleAnalytics';
 import { BugReportButton } from './components/BugReportButton';
 import { LoadingSpinner } from './components/LoadingSpinner';
-import { Modal } from './components/Modal';
-import { Incident } from './types/incident';
 import { SettingsMenu } from './components/SettingsMenu';
-import { StationBadge } from './components/StationBadge';
+import { Tutorial } from './components/Tutorial/Tutorial';
 
 const INCIDENTS_PER_PAGE = 50;
+const LOGO_URL = "https://imgur.com/pxkaqfE.png";
 
-function App() {
+export default function App() {
   const { incidents, isLoading, isError, timeUntilRefresh, refresh, pinnedIncidents } = useIncidents();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const { muted, toggleMute } = useAudioNotification();
   const [activeIncidentId, setActiveIncidentId] = useState<string>();
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeModal, setActiveModal] = useState<{ incident: Incident } | null>(null);
   
   const handleIncidentClick = useCallback((id: string) => {
     setActiveIncidentId(id);
-  }, []);
-
-  const handleModalOpen = useCallback((incident: Incident) => {
-    setActiveModal({ incident });
-  }, []);
-
-  const handleModalClose = useCallback(() => {
-    setActiveModal(null);
+    window.gtag?.('event', 'incident_click', {
+      incident_id: id
+    });
   }, []);
 
   useEffect(() => {
@@ -67,6 +61,9 @@ function App() {
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.gtag?.('event', 'page_change', {
+      page_number: page
+    });
   }, []);
 
   const renderContent = useMemo(() => {
@@ -78,12 +75,8 @@ function App() {
       return (
         <div className="flex items-center justify-center h-[50vh]">
           <div className="text-center bg-red-50 dark:bg-red-900/30 p-8 rounded-xl max-w-md">
-            <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-4">
-              Unable to load incidents
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              There was a problem connecting to the incident feed.
-            </p>
+            <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-4">Unable to load incidents</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">There was a problem connecting to the incident feed.</p>
             <button 
               onClick={refresh}
               className="px-6 py-2 bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900/70 text-red-700 dark:text-red-400 rounded-lg transition-colors"
@@ -99,9 +92,7 @@ function App() {
       return (
         <div className="flex items-center justify-center h-[50vh]">
           <div className="text-center">
-            <p className="text-gray-600 dark:text-gray-400">
-              No active incidents found.
-            </p>
+            <p className="text-gray-600 dark:text-gray-400">No active incidents found.</p>
           </div>
         </div>
       );
@@ -127,7 +118,6 @@ function App() {
                   <IncidentCard 
                     incident={incident} 
                     pinnedInfo={pinnedInfo}
-                    onModalOpen={() => handleModalOpen(incident)}
                   />
                 </div>
               );
@@ -154,7 +144,6 @@ function App() {
                 <IncidentCard 
                   incident={incident} 
                   pinnedInfo={pinnedInfo}
-                  onModalOpen={() => handleModalOpen(incident)}
                 />
               </div>
             );
@@ -168,7 +157,7 @@ function App() {
               disabled={currentPage === 1}
               className="p-2 rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 dark:border-gray-700 transition-colors"
             >
-              Previous
+              <ChevronLeft size={20} />
             </button>
             <div className="flex items-center gap-1">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
@@ -190,60 +179,40 @@ function App() {
               disabled={currentPage === totalPages}
               className="p-2 rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 dark:border-gray-700 transition-colors"
             >
-              Next
+              <ChevronRight size={20} />
             </button>
           </div>
         )}
       </div>
     );
-  }, [
-    sortedPinnedIncidents, 
-    paginatedIncidents, 
-    isLoading, 
-    isError, 
-    refresh, 
-    activeIncidentId, 
-    handleIncidentClick, 
-    pinnedIncidents, 
-    totalPages, 
-    currentPage, 
-    handlePageChange,
-    handleModalOpen
-  ]);
+  }, [sortedPinnedIncidents, paginatedIncidents, isLoading, isError, refresh, activeIncidentId, handleIncidentClick, pinnedIncidents, totalPages, currentPage, handlePageChange]);
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors overflow-x-hidden">
+        <GoogleAnalytics />
         <BetaWarning />
         
         <header className="bg-gradient-to-r from-blue-700 to-blue-900 dark:from-blue-800 dark:to-blue-950 text-white sticky top-0 z-50 shadow-xl">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
             <div className="flex items-center justify-between flex-wrap gap-y-2">
-              <div className="flex items-center">
+              <div className="flex items-center" data-tutorial="logo">
                 <img 
-                  src="/vicalert-logo.png"
+                  src={LOGO_URL}
                   alt="VicAlert" 
                   className="h-10 sm:h-14 w-auto object-contain"
                 />
               </div>
               <div className="flex items-center gap-1 sm:gap-2">
-                <button
-                  onClick={toggleMute}
-                  className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors"
-                  title={muted ? 'Unmute notifications' : 'Mute notifications'}
-                >
-                  {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                </button>
-                <button
-                  onClick={toggleDarkMode}
-                  className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors"
-                  title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-                >
-                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-                <SettingsMenu />
+                <SettingsMenu
+                  isDarkMode={isDarkMode}
+                  toggleDarkMode={toggleDarkMode}
+                  muted={muted}
+                  toggleMute={toggleMute} 
+                  data-tutorial="settings"
+                />
                 <BugReportButton />
-                <div className="hidden sm:block">
+                <div className="hidden sm:block" data-tutorial="refresh">
                   <RefreshTimer
                     timeUntilRefresh={timeUntilRefresh}
                     onRefresh={refresh}
@@ -257,7 +226,7 @@ function App() {
 
         <main className="w-full max-w-7xl mx-auto py-4">
           {!isLoading && !isError && incidents.length > 0 && (
-            <div className="mb-6 h-[300px] sm:h-[400px] relative z-0 mx-3 sm:mx-4">
+            <div className="mb-6 h-[300px] sm:h-[400px] relative z-0 mx-3 sm:mx-4" data-tutorial="map">
               <IncidentMap 
                 incidents={incidents} 
                 activeIncidentId={activeIncidentId}
@@ -265,63 +234,20 @@ function App() {
               />
             </div>
           )}
-          <div className="px-3 sm:px-4">
-            {renderContent}
+          <div className="px-3 sm:px-4" data-tutorial="incidents">
+            <div data-tutorial="code-indicators">
+              <div data-tutorial="severity-levels">
+                <div data-tutorial="station-info">
+                  {renderContent}
+                </div>
+              </div>
+            </div>
           </div>
         </main>
 
         <ScrollToTop />
-
-        {activeModal && (
-          <Modal
-            isOpen={true}
-            onClose={handleModalClose}
-            title={`Incident ${activeModal.incident.reference}`}
-          >
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className={`px-2 py-1 rounded-full text-sm font-medium ${
-                  activeModal.incident.severity === 'critical' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
-                  activeModal.incident.severity === 'extreme' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                  activeModal.incident.severity === 'high' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
-                  activeModal.incident.severity === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                }`}>
-                  {activeModal.incident.severity.toUpperCase()}
-                </span>
-              </div>
-              
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {activeModal.incident.alertType}
-                </p>
-                {activeModal.incident.rawText && (
-                  <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
-                    {activeModal.incident.rawText}
-                  </pre>
-                )}
-              </div>
-
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  Responding Stations
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {activeModal.incident.stations.map((station) => (
-                    <StationBadge 
-                      key={station} 
-                      station={station} 
-                      isAdditional={activeModal.incident.additionalStations.includes(station)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Modal>
-        )}
+        <Tutorial />
       </div>
     </div>
   );
 }
-
-export default App;

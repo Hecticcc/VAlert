@@ -27,6 +27,19 @@ const EXCLUDED_CODES = new Set([
   'WENOFO'
 ]);
 
+// Keywords that indicate an AFEMR alert
+const AFEMR_KEYWORDS = [
+  'AFEMR',
+  'EMR',
+  'MEDICAL EMERGENCY',
+  'MEDICAL INCIDENT'
+];
+
+function isAFEMRAlert(text: string): boolean {
+  const normalizedText = text.toUpperCase();
+  return AFEMR_KEYWORDS.some(keyword => normalizedText.includes(keyword.toUpperCase()));
+}
+
 function isStationMovement(text: string): boolean {
   return /@@ALERT\s+(?:P\d+[A-Z]?)\s+MOVE\s+TO\s+STATION/i.test(text);
 }
@@ -211,7 +224,7 @@ function determineTags(text: string): string[] {
   return tags;
 }
 
-function extractFRVCode(text: string): string | undefined {
+export function extractFRVCode(text: string): string | undefined {
   // Match both 5-digit and 3-digit codes after @@ALERT
   const match = text.match(/@@ALERT\s+(\d{2,5})\s/);
   if (match) {
@@ -272,8 +285,14 @@ export function parseIncidentData(text: string): Incident[] {
   }
 
   const incidentGroups = new Map<string, string[]>();
+  const updateThreshold = 5 * 60 * 1000; // 5 minutes in milliseconds
   
   lines.forEach(line => {
+    // Skip AFEMR alerts
+    if (isAFEMRAlert(line)) {
+      return;
+    }
+
     if (isStationMovement(line)) {
       const timestamp = line.match(/^\d+\s+(\d{2}:\d{2}:\d{2})/)?.[1] || Date.now().toString();
       const ref = `MOVE_${timestamp.replace(/:/g, '')}`;
@@ -293,10 +312,27 @@ export function parseIncidentData(text: string): Incident[] {
   return Array.from(incidentGroups.entries()).map(([reference, group]): Incident => {
     const mainLine = group
       .sort((a, b) => {
-        const timeA = a.match(/\d{2}:\d{2}:\d{2}/)?.[0] || '';
-        const timeB = b.match(/\d{2}:\d{2}:\d{2}/)?.[0] || '';
-        return timeB.localeCompare(timeA);
+        const timeA = new Date(a.match(/(\d{2}:\d{2}:\d{2})\s+(\d{4}-\d{2}-\d{2})/)?.[0] || '').getTime();
+        const timeB = new Date(b.match(/(\d{2}:\d{2}:\d{2})\s+(\d{4}-\d{2}-\d{2})/)?.[0] || '').getTime();
+        return timeA - timeB;
       })[0];
+
+    // Process updates
+    const updates = group.slice(1).map(updateLine => {
+      const updateTimestamp = updateLine.match(/(\d{2}:\d{2}:\d{2})\s+(\d{4}-\d{2}-\d{2})/)?.[0];
+      const mainTimestamp = mainLine.match(/(\d{2}:\d{2}:\d{2})\s+(\d{4}-\d{2}-\d{2})/)?.[0];
+      
+      if (!updateTimestamp || !mainTimestamp) return null;
+      
+      const timeDiff = new Date(updateTimestamp).getTime() - new Date(mainTimestamp).getTime();
+      if (timeDiff < updateThreshold) return null;
+      
+      return {
+        timestamp: new Date(updateTimestamp).toISOString(),
+        description: extractDescription(updateLine),
+        location: parseLocation(updateLine)
+      };
+    }).filter((update): update is NonNullable<typeof update> => update !== null);
 
     const { alertCode, alertType } = determineAlertType(mainLine);
     const description = extractDescription(mainLine);
@@ -333,7 +369,8 @@ export function parseIncidentData(text: string): Incident[] {
       reference: reference.startsWith('MOVE_') ? undefined : reference,
       stationDisplay,
       rawText: group.join('\n'),
-      hasUpdate: group.length > 1,
+      hasUpdate: updates.length > 0,
+      updates,
       tags,
       district,
       initialBrigade

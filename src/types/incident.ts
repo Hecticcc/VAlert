@@ -22,6 +22,11 @@ export interface Incident {
   stationDisplay: string;
   rawText?: string;
   hasUpdate?: boolean;
+  updates?: {
+    timestamp: string;
+    description: string;
+    location: Location;
+  }[];
   tags?: string[];
   district?: number;
   initialBrigade?: string;

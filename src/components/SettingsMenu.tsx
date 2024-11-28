@@ -1,63 +1,86 @@
-import { memo, useState } from 'react';
-import { Settings } from 'lucide-react';
-import { Modal } from './Modal';
+import { memo, useRef, useEffect, useState } from 'react';
+import { Settings, Volume2, VolumeX, Moon, Sun } from 'lucide-react';
 
-export const SettingsMenu = memo(function SettingsMenu() {
+interface SettingsMenuProps {
+  isDarkMode: boolean;
+  toggleDarkMode: () => void;
+  muted: boolean;
+  toggleMute: () => void;
+}
+
+export const SettingsMenu = memo(function SettingsMenu({
+  isDarkMode,
+  toggleDarkMode,
+  muted,
+  toggleMute
+}: SettingsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuRef.current &&
+        buttonRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <>
+    <div className="relative">
       <button
-        onClick={() => setIsOpen(true)}
-        className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors"
+        ref={buttonRef}
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors settings-button"
         title="Settings"
       >
         <Settings size={18} className="text-white" />
       </button>
 
-      <Modal
-        isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
-        title="Settings"
-      >
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">
-              Display Settings
-            </h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm text-gray-700 dark:text-gray-300">
-                    Show EMR Calls
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Display Electronic Medical Record calls in the incident feed
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 dark:text-gray-400 italic">
-                    Currently Unavailable
-                  </span>
-                  <button
-                    className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 cursor-not-allowed"
-                    disabled
-                  >
-                    <span className="inline-block h-4 w-4 transform rounded-full bg-white shadow-sm translate-x-1" />
-                  </button>
-                </div>
-              </div>
-            </div>
+      {isOpen && (
+        <div
+          ref={menuRef}
+          className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50"
+        >
+          <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Settings</h3>
           </div>
+          
+          <div className="p-2 space-y-1">
+            <button
+              onClick={toggleMute}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+            >
+              {muted ? (
+                <VolumeX size={16} className="flex-shrink-0" />
+              ) : (
+                <Volume2 size={16} className="flex-shrink-0" />
+              )}
+              <span>Audio: {muted ? 'Unmute' : 'Mute'}</span>
+            </button>
 
-          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Some settings may be temporarily unavailable during the beta period.
-            </p>
+            <button
+              onClick={toggleDarkMode}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+            >
+              {isDarkMode ? (
+                <Sun size={16} className="flex-shrink-0" />
+              ) : (
+                <Moon size={16} className="flex-shrink-0" />
+              )}
+              <span>Theme: {isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+            </button>
           </div>
         </div>
-      </Modal>
-    </>
+      )}
+    </div>
   );
 });
