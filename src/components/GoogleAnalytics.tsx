@@ -4,9 +4,9 @@ export const GoogleAnalytics = memo(function GoogleAnalytics() {
   useEffect(() => {
     // Initialize dataLayer
     window.dataLayer = window.dataLayer || [];
-    
+
     // Initialize Google Analytics
-    function gtag(type: string, ...args: any[]) {
+    function gtag(...args: any[]) {
       window.dataLayer.push(arguments);
     }
     window.gtag = gtag;

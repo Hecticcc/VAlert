@@ -1,4 +1,4 @@
-import { LayoutShiftMetric } from './performance';
+import { LayoutShiftEntry } from './performance';
 
 export interface PerformanceMetrics {
   timeToFirstByte: number;

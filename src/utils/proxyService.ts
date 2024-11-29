@@ -1,53 +1,46 @@
-addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request))
-})
+import { requestCache } from './cache';
+import { rateLimiter } from './rateLimiter';
 
-async function handleRequest(request) {
-  const PROXY_URL = 'https://vicalert-proxy.herokuapp.com/proxy';
-  const FALLBACK_URL = 'https://cors.sh/https://mazzanet.net.au/cfa/pager-cfa-all.php';
+const TARGET_URL = 'https://mazzanet.net.au/cfa/pager-cfa-all.php';
+const PROXY_URLS = [
+  'https://api.allorigins.win/raw?url=',
+  'https://cors.sh/'
+];
 
-  // Add CORS headers
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+export async function fetchWithProxy(proxyIndex = 0): Promise<string> {
+  // Check cache first
+  const cached = requestCache.get<string>('incidents');
+  if (cached) return cached;
+
+  // Enforce rate limiting
+  if (!rateLimiter.canMakeRequest()) {
+    throw new Error('Rate limit exceeded');
   }
 
-  // Handle OPTIONS request for CORS preflight
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: corsHeaders
-    })
+  if (proxyIndex >= PROXY_URLS.length) {
+    throw new Error('All CORS proxies failed');
   }
 
   try {
-    const response = await fetch(PROXY_URL, {
-      cf: {
-        // Cache for 15 seconds on CDN
-        cacheTtl: 15,
-        cacheEverything: true,
-      },
-    })
-
-    // Create new response with CORS headers
-    const modifiedResponse = new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'text/plain',
-        'Cache-Control': 'public, max-age=15'
-      }
-    })
-
-    return modifiedResponse
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
-    })
+    const proxyUrl = `${PROXY_URLS[proxyIndex]}${encodeURIComponent(TARGET_URL)}`;
+    const response = await fetch(proxyUrl);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.text();
+    if (!data || data.length < 100) {
+      throw new Error('Invalid response received');
+    }
+    
+    // Cache successful response
+    requestCache.set('incidents', data);
+    rateLimiter.recordRequest();
+    
+    return data;
+  } catch (error) {
+    console.error('Proxy error:', error);
+    return fetchWithProxy(proxyIndex + 1);
   }
 }
