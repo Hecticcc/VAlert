@@ -1,25 +1,25 @@
 import { useVirtual } from '@tanstack/react-virtual';
-import React from 'react';
+import { useRef, useCallback, ReactNode } from 'react';
 
 interface VirtualizedListProps<T> {
   items: T[];
-  renderItem: (item: T) => React.ReactNode;
+  renderItem: (item: T) => ReactNode;
   height: number;
   itemHeight: number;
 }
 
-export function VirtualizedList<T>({ 
+export function VirtualizedList<T>({
   items, 
   renderItem, 
   height, 
   itemHeight 
 }: VirtualizedListProps<T>) {
-  const parentRef = React.useRef<HTMLDivElement>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtual({
     size: items.length,
     parentRef,
-    estimateSize: React.useCallback(() => itemHeight, [itemHeight]),
+    estimateSize: useCallback(() => itemHeight, [itemHeight]),
     overscan: 5
   });
 

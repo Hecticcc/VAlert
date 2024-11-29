@@ -1,3 +1,5 @@
+import { LayoutShiftMetric } from './performance';
+
 export interface PerformanceMetrics {
   timeToFirstByte: number;
   firstContentfulPaint: number;
@@ -5,4 +7,5 @@ export interface PerformanceMetrics {
   firstInputDelay: number;
   cumulativeLayoutShift: number;
   timeToInteractive: number;
+  layoutShifts?: LayoutShiftEntry[];
 }

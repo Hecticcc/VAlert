@@ -1,4 +1,4 @@
-import { LayoutShiftMetric } from '../../types/performance';
+import { LayoutShiftEntry } from '../../types/performance';
 import { PerformanceMetrics } from '../../types/metrics';
 
 export function captureWebVitals(): Promise<PerformanceMetrics> {
@@ -37,8 +37,8 @@ export function captureWebVitals(): Promise<PerformanceMetrics> {
     new PerformanceObserver((entryList) => {
       let cumulativeScore = 0;
       entryList.getEntries().forEach((entry) => {
-        const layoutShift = entry as LayoutShiftMetric;
-        if (!entry.hadRecentInput) {
+        const layoutShift = entry as unknown as LayoutShiftEntry;
+        if (!layoutShift.hadRecentInput) {
           cumulativeScore += layoutShift.value;
         }
       });

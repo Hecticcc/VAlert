@@ -19,6 +19,18 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
-    minify: true
+    minify: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'leaflet', 'react-leaflet']
+        },
+        compact: true,
+        generatedCode: {
+          preset: 'es2015'
+        },
+        format: 'es'
+      }
+    }
   }
 });

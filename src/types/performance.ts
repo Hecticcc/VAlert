@@ -1,7 +1,11 @@
-export interface LayoutShiftMetric extends PerformanceEntry {
-  value: number;
+export interface LayoutShiftEntry extends PerformanceEntry {
   hadRecentInput: boolean;
-  toJSON: () => any;
+  value: number;
+  sources?: Array<{
+    node?: Node;
+    currentRect?: DOMRectReadOnly;
+    previousRect?: DOMRectReadOnly;
+  }>;
 }
 
 export interface ImageConfig {

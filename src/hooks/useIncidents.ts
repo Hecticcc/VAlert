@@ -4,18 +4,12 @@ import { Incident } from '../types/incident';
 import { parseIncidentData } from '../utils/parser';
 import { geocodeAddress } from '../utils/geocoding';
 import { shouldPinIncident, getPinDuration } from '../utils/pinned';
+import { fetchWithProxy } from '../utils/proxyService';
 
 const REFRESH_INTERVAL = 30000; // 30 seconds
 const MAX_RETRIES = 3;
 const PINNED_INCIDENTS_KEY = 'pinnedIncidents';
 const UPDATE_THROTTLE = 1000; // 1 second minimum between pin updates
-
-const TARGET_URL = 'https://mazzanet.net.au/cfa/pager-cfa-all.php';
-const CORS_PROXIES = [
-  'https://corsproxy.io/?',
-  'https://cors-proxy.htmldriven.com/?url=',
-  'https://cors.eu.org/',
-];
 
 interface PinnedIncident {
   id: string;
@@ -45,41 +39,15 @@ function savePinnedIncidents(pins: PinnedIncident[], data: Record<string, Incide
   }
 }
 
-async function fetchWithRetry(url: string, retries = 0): Promise<string> {
+const fetcher = async (): Promise<Incident[]> => {
   try {
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const text = await response.text();
-    if (!text || text.length < 10) {
-      throw new Error('Invalid response received');
-    }
-    
-    return text;
+    const text = await fetchWithProxy();
+    return processIncidents(text);
   } catch (error) {
-    if (retries < MAX_RETRIES - 1) {
-      await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1)));
-      return fetchWithRetry(url, retries + 1);
-    }
+    console.error('Error fetching incidents:', error);
     throw error;
   }
-}
-
-async function fetchWithProxy(proxyIndex = 0): Promise<string> {
-  if (proxyIndex >= CORS_PROXIES.length) {
-    throw new Error('All CORS proxies failed');
-  }
-
-  try {
-    const proxyUrl = `${CORS_PROXIES[proxyIndex]}${encodeURIComponent(TARGET_URL)}`;
-    return await fetchWithRetry(proxyUrl);
-  } catch (error) {
-    return fetchWithProxy(proxyIndex + 1);
-  }
-}
+};
 
 const processIncidents = async (rawText: string): Promise<Incident[]> => {
   const incidents = parseIncidentData(rawText);
@@ -93,51 +61,30 @@ const processIncidents = async (rawText: string): Promise<Incident[]> => {
   });
 };
 
-const fetcher = async (): Promise<Incident[]> => {
-  try {
-    const text = await fetchWithProxy();
-    
-    const content = text.includes('<pre>') 
-      ? text.match(/<pre>([\s\S]*?)<\/pre>/)?.[1]?.trim() 
-      : text.includes('<body>') 
-        ? text.match(/<body>([\s\S]*?)<\/body>/)?.[1]?.trim()
-        : text.trim();
-      
-    if (!content) {
-      throw new Error('No valid content found in response');
-    }
-
-    return processIncidents(content);
-  } catch (error) {
-    console.error('Error fetching incidents:', error);
-    throw error;
-  }
-};
-
 export function useIncidents() {
   const [timeUntilRefresh, setTimeUntilRefresh] = useState(REFRESH_INTERVAL);
   const [pinnedIncidents, setPinnedIncidents] = useState<PinnedIncident[]>(() => {
     const { pins } = loadPinnedIncidents();
-    return pins;
+    return pins || [];
   });
   const [pinnedData, setPinnedData] = useState<Record<string, Incident>>(() => {
     const { data } = loadPinnedIncidents();
-    return data;
+    return data || {};
   });
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const isInitialLoadRef = useRef(true);
   const timerRef = useRef<NodeJS.Timeout>();
   const retryCountRef = useRef(0);
   const previousIncidentsRef = useRef<Incident[]>([]);
   const lastPinUpdateRef = useRef<number>(Date.now());
 
-  const { data: rawIncidents, error, isLoading: isSWRLoading, mutate } = useSWR('incidents', fetcher, {
+  const { data: rawIncidents = [], error, isLoading: isSWRLoading, mutate } = useSWR('incidents', fetcher, {
     refreshInterval: REFRESH_INTERVAL,
     revalidateOnFocus: true,
     dedupingInterval: 5000,
-    fallbackData: [],
     onSuccess: (newData) => {
+      const wasInitialLoad = isInitialLoadRef.current;
       retryCountRef.current = 0;
-      setIsInitialLoad(false);
+      isInitialLoadRef.current = false;
       
       if (previousIncidentsRef.current.length > 0) {
         const latestPreviousTimestamp = Math.max(
@@ -146,7 +93,7 @@ export function useIncidents() {
         
         const newIncidents = newData.filter(incident => 
           new Date(incident.timestamp).getTime() > latestPreviousTimestamp
-        );
+        ) || [];
         
         if (newIncidents.length > 0) {
           window.dispatchEvent(new CustomEvent('newIncident'));
@@ -295,7 +242,7 @@ export function useIncidents() {
 
   return {
     incidents: processedIncidents,
-    isLoading: (isSWRLoading && isInitialLoad) || !processedIncidents?.length,
+    isLoading: (isSWRLoading && isInitialLoadRef.current) || !processedIncidents?.length,
     isError: Boolean(error) || retryCountRef.current >= MAX_RETRIES,
     timeUntilRefresh,
     refresh,
